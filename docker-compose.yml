@@ -72,7 +72,8 @@ services:
       BM25_INDEX_PATH: /data/bm25.pkl
     volumes:
       - sqlite_data:/data
-    command: ["python", "-m", "evals.run", "--out", "/data/scorecard.md"]
+      - ./server/evals:/srv/evals
+    command: ["python", "-m", "evals.run", "--out", "/srv/evals/last_scorecard.md"]
 
   frontend:
     build:

@@ -18,7 +18,10 @@ make up
 #    canonical store, recursive-chunks, embeds, upserts into Qdrant)
 make ingest
 
-# 3. (optional) run the eval scorecard
+# 3. (optional) run unit tests
+make test
+
+# 4. (optional) run the eval scorecard (writes server/evals/last_scorecard.md)
 make evals
 ```
 
@@ -72,7 +75,7 @@ React (nginx) --/api/--> FastAPI --LangGraph--> [input_guard, router, denom_reso
 │   ├── requirements.txt
 │   ├── app/                   # FastAPI: routes, models, auth, graph_runner
 │   ├── rag/                   # LangGraph nodes, canonical store, qdrant + bm25, prompts
-│   └── evals/                 # dataset.jsonl + run.py + generated scorecard.md
+│   └── evals/                 # dataset.jsonl, judge.py, run.py, last_scorecard.md
 └── frontend/                  # React + Vite + Tailwind
     ├── Dockerfile             # multi-stage build, served by nginx
     ├── nginx.conf             # /api/* -> backend; SSE-friendly proxy

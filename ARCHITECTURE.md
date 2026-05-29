@@ -56,20 +56,20 @@ input_guard ─┬─► refusal ─► finalize
 - **input_guard** ([server/rag/nodes/guards.py](server/rag/nodes/guards.py)) - OpenAI Moderation API + prompt-injection regex (`ignore previous`, role-play as God, "DAN", system-prompt extraction) + structured-output LLM classifier returning `{safe | adversarial | heretical_rewrite | policy_violation}`. Adversarial / heretical / policy violations short-circuit to a pastoral refusal template.
 - **router** - intent into `scripture_lookup | theological_q | content_generation | image_request | smalltalk`.
 - **denom_resolver** - reads `user.denomination_pref`; if absent, uses an LLM classifier with a confidence threshold (>= 0.6) to detect tradition cues from recent history. Falls back to `none` so nothing is forced on the user.
-- **hybrid_retriever** ([server/rag/nodes/retriever.py](server/rag/nodes/retriever.py)) - dense Qdrant search (top 20) plus BM25 (`rank_bm25` over the same chunks, indexed at ingest), combined with Reciprocal Rank Fusion (k=60). Payload filter selects `denomination IN (user_pref, "shared")`. Dedupes by chunk text and returns top 6.
+- **hybrid_retriever** ([server/rag/nodes/retriever.py](server/rag/nodes/retriever.py)) - dense Qdrant search (top 20) plus BM25 (`rank_bm25` over the same chunks, indexed at ingest), combined with Reciprocal Rank Fusion (k=60). Payload filter selects `denomination IN (user_pref, "shared")`. Dedupes by chunk text and returns top 6. When the user query names a verse (`John 3:16`), that passage is injected from the canonical store so retrieval-bound citation validation can pass on direct lookups.
 - **generator** ([server/rag/nodes/generator.py](server/rag/nodes/generator.py)) - `gpt-4o-mini` with a strict system prompt: cite only retrieved verses, quote verbatim, present 2-3 denominational views on contested points, never declare a single doctrinal truth on disputed matters. Conversation history (last 10 turns) is included.
-- **verse_validator** ([server/rag/nodes/verse_validator.py](server/rag/nodes/verse_validator.py)) - **the anti-hallucination core**. It regex-extracts every `Book Chap:Verse[-Verse]` citation, looks each up in `bible_canonical.json`, and:
-  1. Drops citations that do not exist.
-  2. If a verse is quoted next to a citation, fuzzy-matches the quote against the canonical text (`rapidfuzz.partial_ratio >= 90`).
-  3. If anything was invalid AND `regenerate_attempts < 1`, loops back to `generator` with a corrective system message listing the failures.
-  4. Marks the final response as `citations_verified: full | partial | none`. This flag drives the verification badge in the UI.
+- **verse_validator** ([server/rag/nodes/verse_validator.py](server/rag/nodes/verse_validator.py)) - **the anti-hallucination core**. Two-layer deterministic checks:
+  1. **Canonical** — regex-extracts `Book Chap:Verse[-Verse]`, looks each up in `bible_canonical.json`; drops nonexistent refs; fuzzy-matches inline quotes (`rapidfuzz.partial_ratio >= 90`).
+  2. **Retrieval set-membership** — each existing citation must overlap a scripture chunk in `state.retrieved` (same book/chapter, intersecting verse range via [server/rag/canonical.py](server/rag/canonical.py) `citation_overlaps_retrieved`). Ungrounded citations trigger regen or strip like fake refs.
+  3. If anything failed AND `regenerate_attempts < 1`, loops back to `generator` with a corrective note listing failures.
+  4. `verified` on each citation requires `exists AND text_ok AND grounded_in_retrieval`. Badge: `full | partial | none`.
 - **output_guard** - second moderation pass plus an LLM judge looking for: ideology-charged scripture rewrites that snuck through, impersonation of the Holy Spirit, hate speech, etc.
 - **image_subgraph** - `image_sanitize` rewrites the prompt to enforce reverent style and strip violations (no faces of God the Father, no real people as biblical figures, no violence/sexual/extremist cues); `image_policy` independently classifies allow/block; `image_generate` calls `gpt-image-1` with `moderation=auto`. Three nested layers of refusal before any pixels are produced.
 - **finalize** - assembles `{content, citations, citations_verified, retrieved, safety_flags, audit}` for the API layer.
 
 ### Why verse_validator and not just better prompting
 
-Prompts alone cannot guarantee citation accuracy - models confidently fabricate references that *sound* biblical. The validator is a deterministic post-hoc check against a canonical store the model never sees during generation. This is the same architectural pattern as schema-validating tool outputs: trust the model to draft, but verify against a source of truth before serving.
+Prompts alone cannot guarantee citation accuracy - models confidently fabricate references that *sound* biblical. The validator is a deterministic post-hoc check: canonical existence/quote match plus retrieval overlap (so the model cannot "cite John 3:16" from memory if that passage was not retrieved). This matches regulated-RAG set-membership patterns: trust the model to draft, verify structurally before serving.
 
 ## 4. Backend
 
@@ -112,12 +112,12 @@ Aesthetic: deep indigo + muted gold on parchment, Cormorant Garamond headings + 
 - `image_policy` - reverent vs. policy-violating image requests.
 - `edge` / `smalltalk` / `content_generation` - rounds out coverage.
 
-[server/evals/run.py](server/evals/run.py) runs the whole graph against the dataset, judges each row heuristically (citation presence, refusal expectation, intent label, fake-verse acknowledgment), and writes:
+[server/evals/run.py](server/evals/run.py) runs the whole graph against the dataset; [server/evals/judge.py](server/evals/judge.py) judges each row with hard checks for all `must_*` and `should_*` fields (keyword heuristics + citation signals). Writes:
 
-- `scorecard.md` - per-category pass rates, failures with response previews.
-- `scorecard.jsonl` - raw per-row results for inspection.
+- `server/evals/last_scorecard.md` - per-category pass rates, failures with response previews.
+- `server/evals/last_scorecard.jsonl` - raw per-row results for inspection.
 
-`make evals` runs this against the live containers; the artifacts land in the `sqlite_data` Docker volume.
+`make evals` runs against live containers; scorecards are written into `server/evals/` via bind mount. See [server/evals/README.md](server/evals/README.md).
 
 ## 7. Engineering decisions
 

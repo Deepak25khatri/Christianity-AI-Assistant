@@ -13,6 +13,7 @@ class CitationRecord(BaseModel):
     canonical_text: str | None = None
     quoted_text: str | None = None
     text_match_ratio: float = 0.0
+    grounded_in_retrieval: bool = False
     verified: bool = False
 
 

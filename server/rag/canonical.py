@@ -12,7 +12,7 @@ import os
 import re
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from rapidfuzz import fuzz
 
@@ -50,6 +50,7 @@ class CitationCheck:
     quoted_text: Optional[str] = None
     canonical_text: Optional[str] = None
     text_match_ratio: Optional[float] = None
+    grounded_in_retrieval: bool = False
 
     @property
     def text_ok(self) -> bool:
@@ -159,6 +160,33 @@ class CanonicalBible:
         window = text[window_start:window_end]
         quote_match = re.search(r'"([^"]{8,})"', window) or re.search(r"\u201C([^\u201D]{8,})\u201D", window)
         return quote_match.group(1).strip() if quote_match else None
+
+
+def citation_overlaps_retrieved(
+    book: str,
+    chapter: int,
+    verse_start: int,
+    verse_end: int,
+    retrieved: List[Mapping[str, Any]],
+) -> bool:
+    """True if citation verse range intersects any scripture chunk in retrieved context."""
+    book_norm = normalize_book(book)
+    for doc in retrieved:
+        if doc.get("source_type") != "scripture":
+            continue
+        doc_book = doc.get("book")
+        doc_ch = doc.get("chapter")
+        doc_vs = doc.get("verse_start")
+        doc_ve = doc.get("verse_end")
+        if doc_book is None or doc_ch is None or doc_vs is None or doc_ve is None:
+            continue
+        if normalize_book(str(doc_book)) != book_norm:
+            continue
+        if int(doc_ch) != int(chapter):
+            continue
+        if verse_start <= int(doc_ve) and verse_end >= int(doc_vs):
+            return True
+    return False
 
 
 @lru_cache(maxsize=1)

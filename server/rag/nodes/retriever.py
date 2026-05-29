@@ -9,6 +9,7 @@ from functools import lru_cache
 from typing import Dict, List, Tuple
 
 from app.config import get_settings
+from rag.canonical import get_canonical
 from rag.embeddings import embed_one
 from rag.qdrant_store import get_client, search
 from rag.state import GraphState, RetrievedDoc
@@ -101,6 +102,49 @@ def _denomination_filter(state: GraphState) -> List[str]:
     return [pref, "shared"]
 
 
+def _inject_query_verses(query: str, candidates: list[RetrievedDoc]) -> list[RetrievedDoc]:
+    """Prepend canonical passage windows for verse refs explicitly mentioned in the query."""
+    canonical = get_canonical()
+    if len(canonical) == 0:
+        return candidates
+    injected: list[RetrievedDoc] = []
+    seen: set[str] = set()
+    for _raw, parsed in canonical.extract_citations(query):
+        verses = canonical.get_range(
+            parsed["book"], parsed["chapter"], parsed["verse_start"], parsed["verse_end"]
+        )
+        if not verses:
+            continue
+        v_start, v_end = parsed["verse_start"], parsed["verse_end"]
+        translation = verses[0].translation
+        text = " ".join(v.text for v in verses)
+        label = f"[{parsed['book']} {parsed['chapter']}:{v_start}-{v_end} {translation}] {text}"
+        if label in seen:
+            continue
+        seen.add(label)
+        injected.append({
+            "text": label,
+            "score": 1.0,
+            "source_type": "scripture",
+            "book": parsed["book"],
+            "chapter": parsed["chapter"],
+            "verse_start": v_start,
+            "verse_end": v_end,
+            "translation": translation,
+            "denomination": "shared",
+            "title": None,
+        })
+    if not injected:
+        return candidates
+    merged: list[RetrievedDoc] = []
+    for doc in injected + candidates:
+        key = (doc.get("text") or "")[:120]
+        if key and key not in seen:
+            seen.add(key)
+            merged.append(doc)
+    return merged
+
+
 def retriever(state: GraphState) -> GraphState:
     started = time.time()
     query = state.get("user_message", "")
@@ -177,10 +221,13 @@ def retriever(state: GraphState) -> GraphState:
             "title": pl.get("title"),
         })
 
+    if not compare_mode:
+        candidates = _inject_query_verses(query, candidates)
     final = _ensure_tradition_diversity(candidates, final_k) if compare_mode else candidates[:final_k]
 
     state["retrieved"] = final
     return _audit(state, "retriever", {
         "dense": len(dense_order), "bm25": len(bm25_order), "final": len(final),
         "compare_mode": compare_mode,
+        "query_verse_inject": not compare_mode,
     }, started)

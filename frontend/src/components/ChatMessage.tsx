@@ -22,8 +22,8 @@ export function ChatMessage({ msg, onCitationClick }: Props) {
   const isUser = msg.role === 'user'
   const safety = msg.safety_flags_json
   const refused = !!safety?.refused
-  const citations = msg.citations_json || []
-  const verifiedCitations = citations.filter((c) => c.verified)
+  const citations = (msg.citations_json || []).filter((c) => c.verified)
+  const verifiedCitations = citations
   const traditions = safety?.traditions_compared || null
 
   if (isUser) {
@@ -58,14 +58,14 @@ export function ChatMessage({ msg, onCitationClick }: Props) {
               )}
               <DenominationTag denom={primaryDenomination(msg.retrieved_json)} traditions={traditions} />
             </div>
-            {citations.length > 0 && (
+            {verifiedCitations.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-1.5">
-                {citations.map((c, i) => (
+                {verifiedCitations.map((c, i) => (
                   <button
                     key={i}
-                    className={clsx('chip', !c.verified && 'opacity-60 line-through')}
-                    onClick={() => c.verified && onCitationClick(c)}
-                    title={c.verified ? 'View canonical verse text' : 'This citation could not be verified'}
+                    className="chip"
+                    onClick={() => onCitationClick(c)}
+                    title="View canonical verse text"
                   >
                     {c.ref}
                   </button>
