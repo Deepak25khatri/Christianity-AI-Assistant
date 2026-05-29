@@ -5,8 +5,8 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
-from openai import OpenAI
-from tenacity import retry, stop_after_attempt, wait_exponential
+from openai import AuthenticationError, OpenAI
+from tenacity import retry, retry_if_not_exception_type, stop_after_attempt, wait_exponential
 
 from app.config import get_settings
 
@@ -22,7 +22,11 @@ def get_openai() -> OpenAI:
     return _client
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=8))
+@retry(
+    retry=retry_if_not_exception_type(AuthenticationError),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(min=1, max=8),
+)
 def chat_json(system: str, user: str, *, model: Optional[str] = None,
               temperature: float = 0.0) -> Dict[str, Any]:
     """Single-shot JSON-mode chat. Returns parsed dict or {}."""
@@ -44,7 +48,11 @@ def chat_json(system: str, user: str, *, model: Optional[str] = None,
         return {}
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=8))
+@retry(
+    retry=retry_if_not_exception_type(AuthenticationError),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(min=1, max=8),
+)
 def chat_text(messages: List[Dict[str, str]], *, model: Optional[str] = None,
               temperature: float = 0.3) -> str:
     s = get_settings()

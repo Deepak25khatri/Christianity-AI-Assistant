@@ -66,8 +66,12 @@ export function ImagePanel() {
             </>
           ) : (
             <RefusalCard
-              label="image_blocked"
-              content={`I can't generate that. ${result.refused || ''}\n\nTry rephrasing toward a reverent, traditional Christian art prompt.`}
+              label={result.refused?.includes('API key') ? 'configuration' : 'image_blocked'}
+              content={
+                result.refused?.includes('API key')
+                  ? `${result.refused}\n\nChat and image generation both need a valid OpenAI key.`
+                  : `I can't generate that. ${result.refused || ''}\n\nTry rephrasing toward a reverent, traditional Christian art prompt.`
+              }
             />
           )}
         </div>
