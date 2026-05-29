@@ -21,7 +21,7 @@ class Settings(BaseSettings):
 
     chat_model: str = Field(default="gpt-4o-mini", alias="CHAT_MODEL")
     embed_model: str = Field(default="text-embedding-3-small", alias="EMBED_MODEL")
-    image_model: str = Field(default="dall-e-3", alias="IMAGE_MODEL")
+    image_model: str = Field(default="gpt-image-1", alias="IMAGE_MODEL")
 
     rate_limit_per_min: int = Field(default=30, alias="RATE_LIMIT_PER_MIN")
 

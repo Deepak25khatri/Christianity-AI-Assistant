@@ -17,16 +17,16 @@ router = APIRouter(prefix="/images", tags=["images"])
 
 
 @router.post("", response_model=ImageResp)
-def generate_image(req: ImageReq, user: User = Depends(get_current_user)) -> ImageResp:
+async def generate_image(req: ImageReq, user: User = Depends(get_current_user)) -> ImageResp:
     state: GraphState = {
         "user_id": user.id,
         "user_message": req.prompt,
         "audit": [],
     }
     try:
-        state = image_sanitize(state)
-        state = image_policy(state)
-        state = image_generate(state)
+        state = await image_sanitize(state)
+        state = await image_policy(state)
+        state = await image_generate(state)
     except AuthenticationError:
         log.exception("openai authentication failed for image request")
         return ImageResp(
