@@ -47,6 +47,7 @@ export type SafetyFlags = {
   citations_verified?: 'full' | 'partial' | 'none'
   input_label?: string
   output_blocked?: boolean
+  traditions_compared?: string[]
 }
 
 export type RetrievedDoc = {

@@ -70,6 +70,9 @@ class GraphState(TypedDict, total=False):
     image_url: Optional[str]
     image_refused_reason: Optional[str]
 
+    # retriever flags
+    compare_traditions: bool
+
     # final
     final_content: str
     safety_flags: Dict[str, Any]

@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { ThumbsUp, ThumbsDown } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
 import { api, ChatMessage as ChatMsg, Citation } from '../api'
 import { DenominationTag } from './DenominationTag'
 import { RefusalCard } from './RefusalCard'
@@ -11,12 +12,19 @@ type Props = {
   onCitationClick: (c: Citation) => void
 }
 
+function primaryDenomination(docs: ChatMsg['retrieved_json']): string | null {
+  if (!docs?.length) return null
+  const commentary = docs.find((d) => d.source_type === 'commentary')
+  return commentary?.denomination || docs[0]?.denomination || null
+}
+
 export function ChatMessage({ msg, onCitationClick }: Props) {
   const isUser = msg.role === 'user'
   const safety = msg.safety_flags_json
   const refused = !!safety?.refused
   const citations = msg.citations_json || []
   const verifiedCitations = citations.filter((c) => c.verified)
+  const traditions = safety?.traditions_compared || null
 
   if (isUser) {
     return (
@@ -38,7 +46,9 @@ export function ChatMessage({ msg, onCitationClick }: Props) {
             {msg.image_url && (
               <img src={msg.image_url} alt="generated" className="mb-3 rounded-lg border border-ink-100 max-h-[480px] object-contain" />
             )}
-            <div className="prose prose-sm max-w-none whitespace-pre-wrap text-ink-800">{msg.content}</div>
+            <div className="prose prose-sm max-w-none text-ink-800 prose-headings:font-serif prose-headings:text-ink-800 prose-strong:text-ink-800">
+              <ReactMarkdown>{msg.content}</ReactMarkdown>
+            </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <VerificationBadge verified={msg.citations_verified} nCitations={verifiedCitations.length} />
               {safety?.input_label && safety.input_label !== 'safe' && (
@@ -46,7 +56,7 @@ export function ChatMessage({ msg, onCitationClick }: Props) {
                   Input flagged: {safety.input_label}
                 </span>
               )}
-              <DenominationTag denom={(msg.retrieved_json && msg.retrieved_json[0]?.denomination) || null} />
+              <DenominationTag denom={primaryDenomination(msg.retrieved_json)} traditions={traditions} />
             </div>
             {citations.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-1.5">

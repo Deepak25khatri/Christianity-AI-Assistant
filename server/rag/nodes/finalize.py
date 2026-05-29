@@ -23,6 +23,14 @@ def finalize(state: GraphState) -> GraphState:
     safety_flags.setdefault("input_label", state.get("safety_label", "safe"))
     safety_flags.setdefault("output_blocked", bool(state.get("output_blocked")))
     safety_flags.setdefault("citations_verified", state.get("citations_verified", "none"))
+    retrieved = state.get("retrieved") or []
+    traditions = sorted({
+        (d.get("denomination") or "shared")
+        for d in retrieved
+        if d.get("source_type") == "commentary"
+    })
+    if state.get("compare_traditions") and traditions:
+        safety_flags["traditions_compared"] = traditions
     state["safety_flags"] = safety_flags
 
     return _audit(state, "finalize", {"len": len(state["final_content"])}, started)

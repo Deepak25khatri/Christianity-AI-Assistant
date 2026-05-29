@@ -149,17 +149,45 @@ SEED: List[CommentaryDoc] = [
         ),
     },
     {
-        "id": "shared-difficult-questions",
-        "title": "Pastoral approach to difficult questions",
-        "denomination": "shared",
-        "source": "Demo seed pastoral guidance",
+        "id": "catholic-church-authority",
+        "title": "Catholic teaching on Church authority",
+        "denomination": "catholic",
+        "source": "Demo seed commentary (Catholic tradition)",
         "text": (
-            "When facing hard theological questions - suffering, evil, hell, providence, "
-            "predestination - mainstream Christian teaching encourages humility, attention "
-            "to the full witness of Scripture, the historic creeds, and the company of the "
-            "church. Different traditions emphasize different aspects. A faithful answer "
-            "acknowledges mystery where Scripture is silent and avoids false certainty on "
-            "contested points."
+            "The Catholic Church teaches that Christ entrusted authority to the Apostles and their "
+            "successors, with the Pope as Bishop of Rome exercising a unique ministry of unity. "
+            "Sacred Scripture and Sacred Tradition together form one deposit of faith, interpreted "
+            "authoritatively by the Magisterium. The Catechism (CCC 85-87, 888-892) describes how "
+            "the Church's teaching office serves the Word of God. Catholics look to councils, creeds, "
+            "and the Fathers alongside Scripture."
+        ),
+    },
+    {
+        "id": "protestant-church-authority",
+        "title": "Protestant teaching on Scripture and authority",
+        "denomination": "protestant",
+        "source": "Demo seed commentary (Reformation tradition)",
+        "text": (
+            "Classical Protestant teaching holds that Scripture alone is the final infallible rule of "
+            "faith and practice (sola scriptura). The 2 Timothy 3:16-17 testimony to Scripture's "
+            "God-breathed character is central. Tradition and church leaders are respected but must "
+            "be tested by the Bible. There is no single global human head of the church comparable "
+            "to the Pope; local congregations or national churches govern under Christ as head "
+            "(Ephesians 1:22, Colossians 1:18)."
+        ),
+    },
+    {
+        "id": "orthodox-church-authority",
+        "title": "Orthodox teaching on conciliar authority",
+        "denomination": "orthodox",
+        "source": "Demo seed commentary (Eastern Orthodox tradition)",
+        "text": (
+            "Eastern Orthodox Christianity emphasizes the conciliar nature of the Church: bishops "
+            "gathered in ecumenical councils under the guidance of the Holy Spirit. The Patriarch "
+            "of Constantinople holds a primacy of honor, not universal jurisdiction. Holy Tradition "
+            "includes Scripture, the creeds, the decisions of the seven ecumenical councils, and "
+            "the liturgical life of the Church. Theosis and participation in the mysteries (sacraments) "
+            "are understood within this conciliar and patristic framework (2 Peter 1:4)."
         ),
     },
 ]

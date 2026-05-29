@@ -19,6 +19,50 @@ TOP_DENSE = 20
 TOP_BM25 = 20
 RRF_K = 60
 FINAL_K = 6
+FINAL_K_COMPARE = 8
+
+_COMPARE_HINTS = (
+    "difference", "differences", "compare", "comparison", "versus", " vs ",
+    "catholic", "protestant", "orthodox", "traditions", "denominations",
+)
+
+
+def _is_tradition_comparison(query: str) -> bool:
+    q = query.lower()
+    trad_hits = sum(1 for t in ("catholic", "protestant", "orthodox", "orthodoxy") if t in q)
+    if trad_hits >= 2:
+        return True
+    return any(h in q for h in _COMPARE_HINTS) and trad_hits >= 1
+
+
+def _ensure_tradition_diversity(candidates: list[RetrievedDoc], limit: int) -> list[RetrievedDoc]:
+    """For comparison answers, prefer a mix of commentary traditions + scripture."""
+    scripture = [d for d in candidates if d.get("source_type") == "scripture"]
+    commentary = [d for d in candidates if d.get("source_type") == "commentary"]
+    picked: list[RetrievedDoc] = []
+    seen: set[str] = set()
+
+    def add(doc: RetrievedDoc) -> None:
+        key = (doc.get("text") or "")[:120]
+        if key and key not in seen:
+            seen.add(key)
+            picked.append(doc)
+
+    for doc in scripture[:3]:
+        add(doc)
+
+    for trad in ("shared", "catholic", "orthodox", "protestant"):
+        for doc in commentary:
+            if (doc.get("denomination") or "shared") == trad:
+                add(doc)
+                break
+
+    for doc in candidates:
+        if len(picked) >= limit:
+            break
+        add(doc)
+
+    return picked[:limit]
 
 
 @lru_cache(maxsize=1)
@@ -65,8 +109,15 @@ def retriever(state: GraphState) -> GraphState:
         return _audit(state, "retriever", {"n": 0}, started)
 
     denom_filter = _denomination_filter(state)
+    compare_mode = _is_tradition_comparison(query)
+    if compare_mode:
+        denom_filter = []  # pull commentary from all traditions
+        state["compare_traditions"] = True
+    else:
+        state["compare_traditions"] = False
 
     # 1) Dense search via Qdrant
+    final_k = FINAL_K_COMPARE if compare_mode else FINAL_K
     qvec = embed_one(query)
     qclient = get_client()
     dense_hits = search(
@@ -103,7 +154,7 @@ def retriever(state: GraphState) -> GraphState:
     # dedupe in the post-step by payload text to avoid double-listing the same chunk.
     fused = _rrf([dense_order, bm25_order])
     seen_texts: set[str] = set()
-    final: list[RetrievedDoc] = []
+    candidates: list[RetrievedDoc] = []
     for doc_id, fscore in fused:
         entry = dense_lookup.get(doc_id) or bm25_lookup.get(doc_id)
         if not entry:
@@ -113,7 +164,7 @@ def retriever(state: GraphState) -> GraphState:
         if not txt or txt in seen_texts:
             continue
         seen_texts.add(txt)
-        final.append({
+        candidates.append({
             "text": txt,
             "score": float(fscore),
             "source_type": pl.get("source_type", "unknown"),
@@ -125,8 +176,11 @@ def retriever(state: GraphState) -> GraphState:
             "denomination": pl.get("denomination"),
             "title": pl.get("title"),
         })
-        if len(final) >= FINAL_K:
-            break
+
+    final = _ensure_tradition_diversity(candidates, final_k) if compare_mode else candidates[:final_k]
 
     state["retrieved"] = final
-    return _audit(state, "retriever", {"dense": len(dense_order), "bm25": len(bm25_order), "final": len(final)}, started)
+    return _audit(state, "retriever", {
+        "dense": len(dense_order), "bm25": len(bm25_order), "final": len(final),
+        "compare_mode": compare_mode,
+    }, started)

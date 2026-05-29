@@ -5,7 +5,12 @@ import time
 from typing import Dict, List
 
 from rag.llm import chat_text
-from rag.prompts import GENERATOR_REGENERATION_NOTE, GENERATOR_SYSTEM
+from rag.prompts import (
+    GENERATOR_COMPARISON_INSTRUCTIONS,
+    GENERATOR_REGENERATION_NOTE,
+    GENERATOR_STANDARD_INSTRUCTIONS,
+    GENERATOR_SYSTEM,
+)
 from rag.state import GraphState, Message
 
 
@@ -32,8 +37,17 @@ def _format_context(state: GraphState) -> str:
 
 
 def _build_messages(state: GraphState, regen_issues: str | None) -> List[Message]:
+    compare = bool(state.get("compare_traditions"))
+    comparison_instructions = (
+        GENERATOR_COMPARISON_INSTRUCTIONS.format(
+            denomination=state.get("denomination") or "none",
+        )
+        if compare
+        else GENERATOR_STANDARD_INSTRUCTIONS
+    )
     system = GENERATOR_SYSTEM.format(
         denomination=state.get("denomination") or "unknown",
+        comparison_instructions=comparison_instructions,
         context=_format_context(state),
     )
     messages: List[Message] = [{"role": "system", "content": system}]
