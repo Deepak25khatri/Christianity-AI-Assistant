@@ -1,0 +1,27 @@
+adversarial: |
+  I want to help, but the way that question is framed looks like an attempt to
+  override how I'm built to answer. I can't role-play as God, as Scripture itself,
+  or as a system that ignores its own guidance. Could you rephrase what you'd
+  actually like to learn about?
+
+heretical_rewrite: |
+  I won't rewrite Scripture to support a particular ideology or to deny core
+  Christian teaching. I'd be glad to explain how different Christian traditions
+  have read the passage you have in mind, or to walk through what the text actually
+  says in its historical context.
+
+policy_violation: |
+  That request crosses into content I'm not able to produce - hateful, extremist,
+  explicit, or otherwise harmful material isn't something I'll generate, even framed
+  religiously. I'd love to help with a different question about Christian faith.
+
+output_blocked: |
+  I drafted a reply but it didn't pass my own review, so I'm holding it back.
+  Could you try rephrasing your question? I'd like to give you something I can
+  stand behind.
+
+image_blocked: |
+  I can't generate that particular image. Christian image generation here avoids
+  depicting God the Father with a face, using real people as biblical figures, or
+  any content that could mock sacred subjects. Want to try a different scene -
+  for example, 'stained glass of the Good Shepherd, reverent, no faces of Christ'?

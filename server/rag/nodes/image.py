@@ -1,75 +1,63 @@
-"""Image-generation sub-graph nodes.
-
-These run only after input_guard has marked the message as safe and the router
-classified it as an image_request. Even then, the sanitizer + policy classifier
-can still refuse.
-"""
+"""Image-generation sub-graph nodes."""
 from __future__ import annotations
 
-import base64
 import logging
 import time
-from typing import Dict
 
-from openai import OpenAI
-
-from app.config import get_settings
-from rag.llm import chat_json, get_openai
-from rag.prompts import (
-    IMAGE_POLICY_SYSTEM,
-    IMAGE_PROMPT_SANITIZER_SYSTEM,
-    REFUSAL_TEMPLATES,
-)
+from rag.llm import achat_json_model, get_async_openai
+from rag.models.image import ImagePolicyResult, ImageSanitizeResult
+from rag.nodes._audit import audit
+from rag.prompt_loader import get_prompt, get_refusal
 from rag.state import GraphState
+from app.config import get_settings
 
 log = logging.getLogger(__name__)
 
 
-def _audit(state: GraphState, node: str, payload: Dict, started: float) -> GraphState:
-    audit = list(state.get("audit") or [])
-    audit.append({"node": node, "latency_ms": int((time.time() - started) * 1000), **payload})
-    state["audit"] = audit
-    return state
-
-
-def image_sanitize(state: GraphState) -> GraphState:
+async def image_sanitize(state: GraphState) -> GraphState:
     started = time.time()
-    out = chat_json(IMAGE_PROMPT_SANITIZER_SYSTEM, state.get("user_message", ""))
-    prompt = (out.get("prompt") or "").strip()
-    reason = out.get("reason") or ""
-    if not prompt or prompt.upper().startswith("BLOCK"):
-        state["image_refused_reason"] = reason or "Request violates Christian image policy."
+    out = await achat_json_model(
+        get_prompt("image_sanitize", "system"),
+        state.get("user_message", ""),
+        ImageSanitizeResult,
+    )
+    if out.blocked:
+        state["image_refused_reason"] = out.reason or "Request violates Christian image policy."
         state["image_prompt_sanitized"] = None
-        return _audit(state, "image_sanitize", {"blocked": True, "reason": reason}, started)
-    state["image_prompt_sanitized"] = prompt
-    return _audit(state, "image_sanitize", {"blocked": False}, started)
+        return audit(state, "image_sanitize", {"blocked": True, "reason": out.reason}, started)
+    state["image_prompt_sanitized"] = out.prompt
+    return audit(state, "image_sanitize", {"blocked": False}, started)
 
 
-def image_policy(state: GraphState) -> GraphState:
+async def image_policy(state: GraphState) -> GraphState:
     started = time.time()
     if state.get("image_refused_reason"):
-        return _audit(state, "image_policy", {"skipped": True}, started)
+        return audit(state, "image_policy", {"skipped": True}, started)
     prompt = state.get("image_prompt_sanitized") or ""
-    out = chat_json(IMAGE_POLICY_SYSTEM, prompt)
-    allow = bool(out.get("allow", False))
-    if not allow:
-        state["image_refused_reason"] = out.get("reason") or "Blocked by image policy."
-    return _audit(state, "image_policy", {"allow": allow, "reason": out.get("reason")}, started)
+    out = await achat_json_model(get_prompt("image_policy", "system"), prompt, ImagePolicyResult)
+    if not out.allow:
+        state["image_refused_reason"] = out.reason or "Blocked by image policy."
+    return audit(state, "image_policy", out.model_dump(), started)
 
 
-def image_generate(state: GraphState) -> GraphState:
+async def image_generate(state: GraphState) -> GraphState:
     started = time.time()
     if state.get("image_refused_reason"):
-        state["final_content"] = REFUSAL_TEMPLATES["image_blocked"] + f"\n\n_Reason: {state['image_refused_reason']}_"
-        state["safety_flags"] = {"refused": True, "label": "image_blocked",
-                                  "reason": state["image_refused_reason"]}
-        return _audit(state, "image_generate", {"refused": True}, started)
+        state["final_content"] = (
+            get_refusal("image_blocked") + f"\n\n_Reason: {state['image_refused_reason']}_"
+        )
+        state["safety_flags"] = {
+            "refused": True,
+            "label": "image_blocked",
+            "reason": state["image_refused_reason"],
+        }
+        return audit(state, "image_generate", {"refused": True}, started)
 
     s = get_settings()
     prompt = state.get("image_prompt_sanitized") or state.get("user_message", "")
     try:
-        client: OpenAI = get_openai()
-        resp = client.images.generate(
+        client = get_async_openai()
+        resp = await client.images.generate(
             model=s.image_model,
             prompt=prompt,
             size="1024x1024",
@@ -93,6 +81,6 @@ def image_generate(state: GraphState) -> GraphState:
     except Exception as exc:
         log.exception("image generation failed")
         state["image_refused_reason"] = f"image generation failed: {exc}"
-        state["final_content"] = REFUSAL_TEMPLATES["image_blocked"]
+        state["final_content"] = get_refusal("image_blocked")
         state["safety_flags"] = {"refused": True, "label": "image_error", "reason": str(exc)}
-    return _audit(state, "image_generate", {"ok": "image_url" in state}, started)
+    return audit(state, "image_generate", {"ok": "image_url" in state}, started)

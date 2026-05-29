@@ -1,14 +1,8 @@
-"""Adapter between the FastAPI route layer and the LangGraph app.
-
-Responsibilities:
-    - hydrate state from SQLite (last N user/assistant messages)
-    - run the graph (sync; LangGraph is invoked in a thread for SSE streaming)
-    - persist the assistant message + audit log
-"""
+"""Adapter between the FastAPI route layer and the LangGraph app."""
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -29,7 +23,7 @@ def get_graph_app():
     return _graph
 
 
-def load_history(db: Session, conversation_id: str, n: int = HISTORY_TURNS) -> List[Dict[str, str]]:
+def load_history(db: Session, conversation_id: str, n: int = HISTORY_TURNS) -> list[dict[str, str]]:
     rows = (
         db.query(Message)
         .filter(Message.conversation_id == conversation_id)
@@ -45,7 +39,7 @@ def persist_turn(
     db: Session,
     conversation_id: str,
     user_text: str,
-    final_state: Dict[str, Any],
+    final_state: dict[str, Any],
 ) -> Message:
     user_msg = Message(conversation_id=conversation_id, role="user", content=user_text)
     db.add(user_msg)
@@ -54,8 +48,11 @@ def persist_turn(
     citations = final_state.get("citations") or []
     safety = final_state.get("safety_flags") or {}
     retrieved = final_state.get("retrieved") or []
-    verified = (safety.get("citations_verified") or final_state.get("citations_verified")
-                or "none")
+    verified = (
+        safety.get("citations_verified")
+        or final_state.get("citations_verified")
+        or "none"
+    )
     assistant_msg = Message(
         conversation_id=conversation_id,
         role="assistant",
@@ -86,15 +83,15 @@ def persist_turn(
     return assistant_msg
 
 
-def run_graph(
+async def run_graph(
     db: Session,
     user_text: str,
     conversation_id: str,
-    denomination_pref: Optional[str],
+    denomination_pref: str | None,
     user_id: int,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     history = load_history(db, conversation_id)
-    state: Dict[str, Any] = {
+    state: dict[str, Any] = {
         "user_id": user_id,
         "conversation_id": conversation_id,
         "user_message": user_text,
@@ -103,5 +100,4 @@ def run_graph(
         "audit": [],
     }
     app = get_graph_app()
-    final_state = app.invoke(state, {"recursion_limit": 25})
-    return final_state
+    return await app.ainvoke(state, {"recursion_limit": 25})

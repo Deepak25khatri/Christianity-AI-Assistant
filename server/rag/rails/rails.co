@@ -1,0 +1,5 @@
+define flow check input safety
+  $result = execute check_input_safety
+
+define flow check output safety
+  $result = execute check_output_safety

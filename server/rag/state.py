@@ -1,7 +1,9 @@
 """Shared LangGraph state schema."""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, Optional, TypedDict
+from typing import Any, Dict, List, Literal, Optional
+
+from typing_extensions import TypedDict
 
 
 Role = Literal["user", "assistant", "system"]

@@ -2,19 +2,12 @@
 from __future__ import annotations
 
 import time
-from typing import Dict
 
+from rag.nodes._audit import audit
 from rag.state import GraphState
 
 
-def _audit(state: GraphState, node: str, payload: Dict, started: float) -> GraphState:
-    audit = list(state.get("audit") or [])
-    audit.append({"node": node, "latency_ms": int((time.time() - started) * 1000), **payload})
-    state["audit"] = audit
-    return state
-
-
-def finalize(state: GraphState) -> GraphState:
+async def finalize(state: GraphState) -> GraphState:
     started = time.time()
     if not state.get("final_content"):
         state["final_content"] = state.get("draft", "")
@@ -33,4 +26,4 @@ def finalize(state: GraphState) -> GraphState:
         safety_flags["traditions_compared"] = traditions
     state["safety_flags"] = safety_flags
 
-    return _audit(state, "finalize", {"len": len(state["final_content"])}, started)
+    return audit(state, "finalize", {"len": len(state["final_content"])}, started)

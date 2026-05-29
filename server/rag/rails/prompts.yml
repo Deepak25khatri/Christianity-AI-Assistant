@@ -1,0 +1,7 @@
+prompts:
+  - task: input_guard
+    content: |
+      Classify Christianity-assistant user input for safety before routing.
+  - task: output_guard
+    content: |
+      Review Christianity-assistant draft replies before they reach the user.

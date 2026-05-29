@@ -8,6 +8,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import logging
 import os
@@ -133,12 +134,12 @@ def main() -> int:
         log.info("[%d/%d] %s :: %s", i, len(rows), row["id"], row["prompt"][:80])
         t0 = time.time()
         try:
-            state = graph.invoke({
+            state = asyncio.run(graph.ainvoke({
                 "user_message": row["prompt"],
                 "messages": [],
                 "denomination_pref": row.get("denomination_pref"),
                 "audit": [],
-            })
+            }))
         except Exception as exc:
             log.exception("graph failed on %s", row["id"])
             state = {"final_content": f"[error: {exc}]", "safety_flags": {"refused": False}}
