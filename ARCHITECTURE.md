@@ -142,7 +142,7 @@ Aesthetic: deep indigo + muted gold on parchment, Cormorant Garamond headings + 
 - Expand commentary corpus from the seed snippets to full public-domain works (Matthew Henry, CCC excerpts under fair use, Philokalia).
 - Per-user rate quotas, not just per-IP.
 
-## 9. 5-8 minute walkthrough script
+## 9.  walkthrough script
 
 See [README.md](README.md#what-to-try-in-the-demo) for the recommended prompt sequence. Suggested flow:
 
